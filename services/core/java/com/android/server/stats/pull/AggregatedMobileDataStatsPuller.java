@@ -331,7 +331,19 @@ class AggregatedMobileDataStatsPuller {
             Trace.traceBegin(Trace.TRACE_TAG_SYSTEM_SERVER, TAG + "-updateNetworkStats");
         }
 
-        final NetworkStats latestStats = getMobileUidStats(networkStatsManager);
+        final NetworkStats latestStats;
+        try {
+            latestStats = getMobileUidStats(networkStatsManager);
+        } catch (IllegalStateException e) {
+            // Old vendor kernels (e.g. 4.4) have no pinned BPF maps: the
+            // network stats service reports no data instead of real-time
+            // mobile stats. The pull thread must not crash system_server.
+            Slog.w(TAG, "no BPF network stats (old kernel), skipping update: " + e);
+            if (traceEnabled) {
+                Trace.traceEnd(Trace.TRACE_TAG_SYSTEM_SERVER);
+            }
+            return;
+        }
         if (isEmpty(latestStats)) {
             if (DEBUG) {
                 Slog.w(TAG, "getMobileUidStats() failed");
