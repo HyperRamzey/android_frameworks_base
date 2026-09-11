@@ -11761,13 +11761,27 @@ public class BatteryStatsImpl extends BatteryStats {
     @VisibleForTesting
     protected NetworkStats readMobileNetworkStatsLocked(
             @NonNull NetworkStatsManager networkStatsManager) {
-        return networkStatsManager.getMobileUidStats();
+        try {
+            return networkStatsManager.getMobileUidStats();
+        } catch (IllegalStateException e) {
+            // Old vendor kernels (e.g. 4.4) have no pinned BPF maps; the
+            // stats service may report no data. Battery stats must not
+            // crash system_server over a stats read.
+            Slog.w(TAG, "no mobile network stats (old kernel?): " + e);
+            return new NetworkStats(SystemClock.elapsedRealtime(), 0);
+        }
     }
 
     @VisibleForTesting
     protected NetworkStats readWifiNetworkStatsLocked(
             @NonNull NetworkStatsManager networkStatsManager) {
-        return networkStatsManager.getWifiUidStats();
+        try {
+            return networkStatsManager.getWifiUidStats();
+        } catch (IllegalStateException e) {
+            // See readMobileNetworkStatsLocked.
+            Slog.w(TAG, "no wifi network stats (old kernel?): " + e);
+            return new NetworkStats(SystemClock.elapsedRealtime(), 0);
+        }
     }
 
     @VisibleForTesting
