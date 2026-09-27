@@ -769,6 +769,27 @@ static binder_status_t writeBlobFromFd(AParcel* parcel, int32_t size, int fd) {
     return STATUS_OK;
 }
 
+// F_SEAL_FUTURE_WRITE is 0x0010 and only exists since Linux 5.1
+// (8d29165bc21e). Older kernels validate the F_ADD_SEALS mask against
+// F_ALL_SEALS == 0x0f and reject the whole call with -EINVAL, so asking for it
+// there turns every parcel of a bitmap over BLOB_INPLACE_LIMIT into a hard
+// "Could not copy bitmap to parcel blob." crash in the calling app.
+// F_SEAL_WRITE is the pre-5.1 spelling of the same guarantee and is always
+// satisfiable on this path, because the blob is filled with write(2) and never
+// mapped, so there is no writable mapping for it to conflict with. Probe once,
+// the same way libcutils' has_memfd_support() does.
+static bool supportsFutureWriteSeal() {
+    static const bool supported = []() {
+        base::unique_fd probe(
+                syscall(__NR_memfd_create, "hwui-seal-probe", MFD_CLOEXEC | MFD_ALLOW_SEALING));
+        if (probe.get() < 0) {
+            return false;
+        }
+        return fcntl(probe.get(), F_ADD_SEALS, F_SEAL_FUTURE_WRITE) == 0;
+    }();
+    return supported;
+}
+
 static binder_status_t writeBlob(AParcel* parcel, uint64_t bitmapId, const SkBitmap& bitmap,
                                  bool immutable) {
     const size_t size = bitmap.computeByteSize();
@@ -795,17 +816,22 @@ static binder_status_t writeBlob(AParcel* parcel, uint64_t bitmapId, const SkBit
                 return STATUS_NO_MEMORY;
             }
 
-            if (fcntl(fd, F_ADD_SEALS,
-                      // Disallow growing / shrinking.
-                      F_SEAL_GROW | F_SEAL_SHRINK
-                      // If immutable, disallow writing.
-                      // Use F_SEAL_FUTURE_WRITE instead of F_SEAL_WRITE to work around a bug in
-                      // pre-6.7 kernels.
-                      // There are no writable mappings made prior to this, so both seals are
-                      // functionally equivalent.
-                      // See: b/409846908#comment39
-                      | (immutable ? F_SEAL_FUTURE_WRITE : 0))) {
-                return STATUS_UNKNOWN_ERROR;
+            // Disallow growing / shrinking.
+            int seals = F_SEAL_GROW | F_SEAL_SHRINK;
+            if (immutable) {
+                // Disallow writing. F_SEAL_FUTURE_WRITE works around a bug in pre-6.7
+                // kernels, but is unknown before 5.1, so fall back to F_SEAL_WRITE
+                // there. There are no writable mappings made prior to this, so both
+                // seals are functionally equivalent.
+                // See: b/409846908#comment39
+                seals |= supportsFutureWriteSeal() ? F_SEAL_FUTURE_WRITE : F_SEAL_WRITE;
+            }
+            if (fcntl(fd, F_ADD_SEALS, seals)) {
+                // Sealing is hardening, not correctness: this blob stays private to
+                // the sending process until its fd is handed to a single receiver
+                // over binder, so failing to seal it must not fail the parcel.
+                ALOGW("Bitmap.writeToParcel: could not seal blob (errno %d), continuing unsealed",
+                      errno);
             }
 
         } else {
