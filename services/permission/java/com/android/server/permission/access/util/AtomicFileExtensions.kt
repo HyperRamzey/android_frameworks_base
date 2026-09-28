@@ -26,6 +26,10 @@ import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.IOException
 
+/** Set once the kernel has told us it has no fs-verity, so we stop retrying it. */
+@Volatile
+private var fsVerityUnavailable = false
+
 /** Read from an [AtomicFile], fallback to reserve file to read the data. */
 @Throws(Exception::class)
 inline fun AtomicFile.readWithReserveCopy(block: (FileInputStream) -> Unit) {
@@ -61,11 +65,21 @@ inline fun AtomicFile.writeWithReserveCopy(block: (FileOutputStream) -> Unit) {
     } catch (e: Exception) {
         Slog.e("AccessPersistence", "Failed to write $reserveFile", e)
     }
-    try {
-        FileIntegrity.setUpFsVerity(baseFile)
-        FileIntegrity.setUpFsVerity(reserveFile)
-    } catch (e: Exception) {
-        Slog.e("AccessPersistence", "Failed to verity-protect runtime-permissions", e)
+    // fs-verity needs CONFIG_FS_VERITY (Linux 5.4+); there is no 4.4 backport, so
+    // the ioctl always fails with ENOTTY here. VerityUtils.isFsVeritySupported()
+    // cannot gate this: it only checks DEVICE_INITIAL_SDK_INT >= R, which is true.
+    // Remember the failure so we report it once instead of dumping an 8-frame stack
+    // trace on every runtime-permission state write. dm-verity still covers
+    // system/vendor, so this only costs integrity protection of the permissions file.
+    if (!fsVerityUnavailable) {
+        try {
+            FileIntegrity.setUpFsVerity(baseFile)
+            FileIntegrity.setUpFsVerity(reserveFile)
+        } catch (e: Exception) {
+            fsVerityUnavailable = true
+            Slog.w("AccessPersistence", "fs-verity unavailable, runtime-permissions "
+                    + "will not be integrity-protected: ${e.message}")
+        }
     }
 }
 
