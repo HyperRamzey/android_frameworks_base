@@ -84,6 +84,7 @@ import com.android.systemui.shared.rotation.RotationButton.RotationButtonUpdates
 import com.android.systemui.shared.rotation.RotationButtonController;
 import com.android.systemui.shared.system.QuickStepContract;
 import com.android.systemui.statusbar.phone.AutoHideController;
+import com.android.systemui.statusbar.policy.Offset;
 import com.android.systemui.statusbar.phone.CentralSurfaces;
 import com.android.systemui.statusbar.phone.LightBarTransitionsController;
 import com.android.systemui.utils.windowmanager.WindowManagerUtils;
@@ -175,7 +176,28 @@ public class NavigationBarView extends FrameLayout {
     private boolean mShowSwipeUpUi;
     private UpdateActiveTouchRegionsCallback mUpdateActiveTouchRegionsCallback;
 
-    private class NavTransitionListener implements TransitionListener {
+    private ViewGroup mNavigationBarContents = null;
+
+    public void offsetNavBar(Offset offset) {
+        if (getResources().getInteger(
+                com.android.internal.R.integer.config_navBarInteractionMode)
+                == 2 /* NavigationModeController.NAVIGATION_MODE_GESTURAL */) {
+            final View handle = getHomeHandle().getCurrentView();
+            if (handle != null) {
+                handle.setTranslationY(offset.getY());
+                handle.invalidate();
+            }
+            return;
+        }
+        if (mNavigationBarContents == null) {
+            return;
+        }
+        mNavigationBarContents.setTranslationX(offset.getX());
+        mNavigationBarContents.setTranslationY(offset.getY());
+        invalidate();
+    }
+
+    public class NavTransitionListener implements TransitionListener {
         private boolean mBackTransitioning;
         private boolean mHomeAppearing;
         private long mStartDelay;
@@ -853,6 +875,7 @@ public class NavigationBarView extends FrameLayout {
     public void onFinishInflate() {
         super.onFinishInflate();
         mNavigationInflaterView = findViewById(R.id.navigation_inflater);
+        mNavigationBarContents = (ViewGroup) findViewById(R.id.nav_buttons);
         mNavigationInflaterView.setButtonDispatchers(mButtonDispatchers);
 
         updateOrientationViews();

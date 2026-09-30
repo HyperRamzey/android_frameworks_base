@@ -82,4 +82,8 @@
 
     <!-- Lockscreen clock -->
     <dimen name="custom_clock_frame_margin_top">0dp</dimen>
+
+    <!-- Burn-in protection: maximum statusbar/navbar content shift -->
+    <dimen name="vertical_max_shift">4dp</dimen>
+    <dimen name="horizontal_max_shift">4dp</dimen>
 </resources>

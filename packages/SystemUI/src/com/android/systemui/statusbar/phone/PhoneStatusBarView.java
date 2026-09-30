@@ -103,6 +103,10 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
     @Nullable
     private ViewGroup mStatusBarContents = null;
 
+    private ViewGroup mStatusBarStartSideContent = null;
+
+    private ViewGroup mStatusBarEndSideContent = null;
+
     /**
      * Draw this many pixels into the left/right side of the cutout to optimally use the space
      */
@@ -196,12 +200,15 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
         getViewRootImpl().setTouchableRegion(touchableRegion);
     }
 
-    public void offsetStatusBar(Offset offset) {
-        if (mStatusBarContents == null) {
-            return;
+    public void offsetStatusBar(Offset startOffset, Offset endOffset) {
+        if (mStatusBarStartSideContent != null) {
+            mStatusBarStartSideContent.setTranslationX(startOffset.getX());
+            mStatusBarStartSideContent.setTranslationY(startOffset.getY());
         }
-        mStatusBarContents.setTranslationX(offset.getX());
-        mStatusBarContents.setTranslationY(offset.getY());
+        if (mStatusBarEndSideContent != null) {
+            mStatusBarEndSideContent.setTranslationX(endOffset.getX());
+            mStatusBarEndSideContent.setTranslationY(endOffset.getY());
+        }
         invalidate();
     }
 
@@ -210,6 +217,10 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
         super.onFinishInflate();
         mCutoutSpace = findViewById(R.id.cutout_space_view);
         mStatusBarContents = (ViewGroup) findViewById(R.id.status_bar_contents);
+        mStatusBarStartSideContent =
+                (ViewGroup) findViewById(R.id.status_bar_start_side_content);
+        mStatusBarEndSideContent =
+                (ViewGroup) findViewById(R.id.status_bar_end_side_content);
 
         updateResources();
     }

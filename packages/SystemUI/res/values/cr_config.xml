@@ -78,4 +78,9 @@
     <bool name="config_themedBatteryPillIconLeading">true</bool>
     <bool name="config_themedBatteryPillOutline">false</bool>
     <bool name="config_themedBatteryPillNub">true</bool>
+
+    <!-- Interval between subsequent shifts of the statusbar and navbar
+         contents, in seconds. Amplitude comes from vertical_max_shift /
+         horizontal_max_shift. -->
+    <integer name="config_systemBarBurnInProtectionShiftInterval">60</integer>
 </resources>
