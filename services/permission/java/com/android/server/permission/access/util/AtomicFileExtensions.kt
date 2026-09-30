@@ -28,7 +28,8 @@ import java.io.IOException
 
 /** Set once the kernel has told us it has no fs-verity, so we stop retrying it. */
 @Volatile
-private var fsVerityUnavailable = false
+@PublishedApi
+internal var fsVerityUnavailable = false
 
 /** Read from an [AtomicFile], fallback to reserve file to read the data. */
 @Throws(Exception::class)
