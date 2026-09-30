@@ -16,7 +16,7 @@
 -->
 <resources>
     <!-- Color of the UDFPS pressed view -->
-    <color name="config_udfpsColor">#ffffffff</color>
+    <color name="config_udfpsColor">#ff00ff50</color>
 
     <!-- Whether to enable framework dimming for UDFPS -->
     <bool name="config_udfpsFrameworkDimming">false</bool>
