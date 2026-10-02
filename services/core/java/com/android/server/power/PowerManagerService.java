@@ -2026,8 +2026,16 @@ public final class PowerManagerService extends SystemService
 
     private void addFrozenStateChangeCallbacksLocked(WakeLock wakelock) {
         if (mFeatureFlags.isDisableFrozenProcessWakelocksEnabled()) {
+            // acquireLock() reaches here on every acquire, including a
+            // re-acquire of a lock that is still held. Re-registering would
+            // overwrite the binder's single callback entry without unlinking
+            // the previous one, so make the whole pair idempotent instead.
+            if (wakelock.mFrozenStateCallbackRegistered) {
+                return;
+            }
             try {
                 wakelock.mLock.addFrozenStateChangeCallback(wakelock);
+                wakelock.mFrozenStateCallbackRegistered = true;
             } catch (UnsupportedOperationException e) {
                 // Ignore the exception.  The callback is not supported on this platform or on
                 // this binder.  The callback is never supported for local binders.  There is
@@ -2043,15 +2051,30 @@ public final class PowerManagerService extends SystemService
     }
 
     private void removeFrozenStateChangeCallbacksLocked(WakeLock wakelock) {
-        if (mFeatureFlags.isDisableFrozenProcessWakelocksEnabled()) {
-            try {
-                wakelock.mLock.removeFrozenStateChangeCallback(wakelock);
-            } catch (UnsupportedOperationException e) {
-                if (DEBUG_SPEW) {
-                    Slog.v(TAG, "FrozenStateChangeCallback not supported for this wakelock "
-                            + wakelock.mTag + " " + e.getLocalizedMessage());
-                }
-            } catch (IllegalArgumentException e) {
+        // Drive this off the registration state, NOT off
+        // isDisableFrozenProcessWakelocksEnabled(). That flag is a runtime
+        // device config: if it flips between acquire and release, gating the
+        // removal on it either throws here (no matching add) or leaves the
+        // callback registered on the dead binder (add under the old flag,
+        // release under the new one). The flag decides whether we REGISTER;
+        // the recorded state decides whether we UNREGISTER.
+        if (!wakelock.mFrozenStateCallbackRegistered) {
+            return;
+        }
+        wakelock.mFrozenStateCallbackRegistered = false;
+        try {
+            wakelock.mLock.removeFrozenStateChangeCallback(wakelock);
+        } catch (UnsupportedOperationException e) {
+            if (DEBUG_SPEW) {
+                Slog.v(TAG, "FrozenStateChangeCallback not supported for this wakelock "
+                        + wakelock.mTag + " " + e.getLocalizedMessage());
+            }
+        } catch (IllegalArgumentException e) {
+            // Should now be unreachable: we only get here with a recorded
+            // registration. Kept as a safety net and demoted behind DEBUG_SPEW,
+            // matching the handler above, so a genuine double-remove can never
+            // flood logcat at verbose level again.
+            if (DEBUG_SPEW) {
                 Slog.v(TAG, "FrozenStateChangeCallback was already unregistered");
             }
         }
@@ -5969,6 +5992,13 @@ public final class PowerManagerService extends SystemService
         public boolean mNotifiedLong;
         public boolean mDisabled;
         private boolean mIsFrozen;
+        // derp: frozen-state callback registration state
+        // True once addFrozenStateChangeCallback() has returned for this
+        // lock. BinderProxy.removeFrozenStateChangeCallback() throws
+        // IllegalArgumentException when there is no matching entry, so
+        // this flag - not the feature flag - decides whether a removal is
+        // legitimate.
+        private boolean mFrozenStateCallbackRegistered;
         public IWakeLockCallback mCallback;
 
         public WakeLock(IBinder lock, int displayId, int flags, String tag, String packageName,

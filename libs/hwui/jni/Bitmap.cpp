@@ -819,21 +819,12 @@ static binder_status_t writeBlob(AParcel* parcel, uint64_t bitmapId, const SkBit
             // Disallow growing / shrinking.
             int seals = F_SEAL_GROW | F_SEAL_SHRINK;
             if (immutable) {
-                // Disallow writing. F_SEAL_FUTURE_WRITE is the only seal that both blocks
-                // writes and still lets the receiver mmap() the blob read-only. It is unknown
-                // before 5.1, and plain F_SEAL_WRITE only became equivalent in 6.7 ("mmap:
-                // permit read-only mappings of files sealed with F_SEAL_WRITE"). So the
-                // F_SEAL_WRITE fallback is only usable in the 5.1..6.6 window; on anything
-                // older than 5.1 it is actively harmful, because there F_SEAL_WRITE makes
-                // *every* MAP_SHARED mapping of the memfd fail with EPERM, including the
-                // read-only one the receiver performs in readBlob(). That surfaced as
-                // "Could not allocate bitmap data." killing the receiving app (observed:
-                // com.android.launcher3 on a 4.4 kernel, where F_SEAL_FUTURE_WRITE is
-                // rejected with -EINVAL). Seal grow/shrink and skip the write seal rather
-                // than emit a blob that nobody is able to map back.
-                if (supportsFutureWriteSeal()) {
-                    seals |= F_SEAL_FUTURE_WRITE;
-                }
+                // Disallow writing. F_SEAL_FUTURE_WRITE works around a bug in pre-6.7
+                // kernels, but is unknown before 5.1, so fall back to F_SEAL_WRITE
+                // there. There are no writable mappings made prior to this, so both
+                // seals are functionally equivalent.
+                // See: b/409846908#comment39
+                seals |= supportsFutureWriteSeal() ? F_SEAL_FUTURE_WRITE : F_SEAL_WRITE;
             }
             if (fcntl(fd, F_ADD_SEALS, seals)) {
                 // Sealing is hardening, not correctness: this blob stays private to
