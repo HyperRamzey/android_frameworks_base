@@ -278,11 +278,25 @@ object DeviceEntryIconViewBinder {
                             fgIconView.imageTintList =
                                 ColorStateList.valueOf(overrideColor?.toArgb() ?: viewModel.tint)
                             if (fgIconView.drawable.current !is UdfpsIconDrawable) {
+                                // A30s: nudge the UDFPS glyph DOWN by
+                                // udfps_vertical_offset. viewModel.padding is
+                                // uniform (UdfpsOverlayInteractor.iconPadding), so
+                                // it cannot express a vertical offset; adding half
+                                // the offset to the top and subtracting it from the
+                                // bottom moves the glyph down by `offset` and keeps
+                                // its size. Bottom padding is floored at 0 so a
+                                // small padding can never produce a negative.
+                                // The dimen is 0px on every device except the A30s
+                                // overlay, so this is a no-op everywhere else.
+                                val fpVOffset =
+                                    fgIconView.resources.getDimensionPixelSize(
+                                        com.android.systemui.res.R.dimen.udfps_vertical_offset
+                                    )
                                 fgIconView.setPadding(
                                     viewModel.padding,
+                                    viewModel.padding + fpVOffset,
                                     viewModel.padding,
-                                    viewModel.padding,
-                                    viewModel.padding
+                                    (viewModel.padding - fpVOffset).coerceAtLeast(0)
                                 )
                             } else {
                                 fgIconView.setPadding(0, 0, 0, 0)

@@ -104,11 +104,17 @@ object AlternateBouncerUdfpsViewBinder {
                     )
                     fgIconView.imageTintList = ColorStateList.valueOf(fgViewModel.tint)
                     if (fgIconView.drawable.current !is UdfpsIconDrawable) {
+                        // A30s: same vertical nudge as DeviceEntryIconViewBinder -
+                        // see the long comment there. 0px on all other devices.
+                        val fpVOffset =
+                            fgIconView.resources.getDimensionPixelSize(
+                                com.android.systemui.res.R.dimen.udfps_vertical_offset
+                            )
                         fgIconView.setPadding(
                             fgViewModel.padding,
+                            fgViewModel.padding + fpVOffset,
                             fgViewModel.padding,
-                            fgViewModel.padding,
-                            fgViewModel.padding
+                            (fgViewModel.padding - fpVOffset).coerceAtLeast(0)
                         )
                     } else {
                         fgIconView.setPadding(0, 0, 0, 0)

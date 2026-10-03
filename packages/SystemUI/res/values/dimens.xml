@@ -2303,4 +2303,13 @@
     <dimen name="tile_details_entry_start_margin">16dp</dimen>
     <!-- Tile Details end -->
 
+    <!-- UDFPS icon vertical nudge, in raw pixels. 0 = the glyph stays centred on
+         the sensor rect, which is stock behaviour. A device overlay raises this
+         to shift the glyph down WITHOUT moving the sensor rect, because the rect
+         is what the HAL is told and what the touch hit-test uses.
+         Needed because UdfpsOverlayInteractor.iconPadding is uniform padding and
+         so cannot express a vertical offset. Added for the A30s (SM-A307F);
+         see device/samsung/a30s/overlay/.../SystemUI/res/values/udfps_geometry.xml. -->
+    <dimen name="udfps_vertical_offset">0px</dimen>
+
 </resources>
