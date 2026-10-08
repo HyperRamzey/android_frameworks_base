@@ -55,14 +55,46 @@ public abstract class VerityUtils {
     /** SHA256 hash size. */
     private static final int HASH_SIZE_BYTES = 32;
 
+    /**
+     * Set once a real fs-verity enable attempt fails with an "unsupported" errno
+     * (ENOTTY/EOPNOTSUPP/ENOSYS): this kernel/filesystem has no fs-verity, so every
+     * later attempt is a guaranteed no-op. Without the probe, each package
+     * restrictions/roles/runtime-permissions write logged a full-stack ENOTTY error
+     * (90+ lines per boot) for an operation that can never succeed here.
+     */
+    private static volatile boolean sFsVerityUnsupported = false;
+
+    private static boolean isUnsupportedFsVerityErrno(int errno) {
+        return errno == OsConstants.ENOTTY || errno == OsConstants.EOPNOTSUPP
+                || errno == OsConstants.ENOSYS;
+    }
+
+    private static void markFsVerityUnsupported(int errno) {
+        if (!sFsVerityUnsupported) {
+            sFsVerityUnsupported = true;
+            Slog.w(TAG, "fs-verity unsupported on this kernel (" + Os.strerror(errno)
+                    + "); enable attempts now skipped");
+        }
+    }
+
     public static boolean isFsVeritySupported() {
+        if (sFsVerityUnsupported) {
+            return false;
+        }
         return Build.VERSION.DEVICE_INITIAL_SDK_INT >= Build.VERSION_CODES.R;
     }
 
     /** Enables fs-verity for the file without signature. */
     public static void setUpFsverity(@NonNull String filePath) throws IOException {
+        if (sFsVerityUnsupported) {
+            return;
+        }
         int errno = enableFsverityNative(filePath);
         if (errno != 0) {
+            if (isUnsupportedFsVerityErrno(errno)) {
+                markFsVerityUnsupported(errno);
+                return;
+            }
             throw new IOException("Failed to enable fs-verity on " + filePath + ": "
                     + Os.strerror(errno));
         }
@@ -70,8 +102,15 @@ public abstract class VerityUtils {
 
     /** Enables fs-verity for an open file without signature. */
     public static void setUpFsverity(int fd) throws IOException {
+        if (sFsVerityUnsupported) {
+            return;
+        }
         int errno = enableFsverityForFdNative(fd);
         if (errno != 0) {
+            if (isUnsupportedFsVerityErrno(errno)) {
+                markFsVerityUnsupported(errno);
+                return;
+            }
             throw new IOException("Failed to enable fs-verity on FD(" + fd + "): "
                     + Os.strerror(errno));
         }
@@ -79,6 +118,9 @@ public abstract class VerityUtils {
 
     /** Returns whether the file has fs-verity enabled. */
     public static boolean hasFsverity(@NonNull String filePath) {
+        if (sFsVerityUnsupported) {
+            return false;
+        }
         int retval = statxForFsverityNative(filePath);
         if (retval < 0) {
             Slog.e(TAG, "Failed to check whether fs-verity is enabled, errno " + -retval + ": "
