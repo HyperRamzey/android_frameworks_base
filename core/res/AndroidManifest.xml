@@ -10034,6 +10034,14 @@
                  android:permission="android.permission.BIND_JOB_SERVICE">
         </service>
 
+        <!-- AppSearch daily "fully persist" job. AppSearchManagerService schedules it from
+             system_server, so the component is android/com.android.server.appsearch.
+             AppSearchMaintenanceService; without this declaration JobScheduler rejects it
+             with "non-existent component". -->
+        <service android:name="com.android.server.appsearch.AppSearchMaintenanceService"
+                 android:permission="android.permission.BIND_JOB_SERVICE">
+        </service>
+
         <service android:name="com.android.server.BinaryTransparencyService$UpdateMeasurementsJobService"
                  android:permission="android.permission.BIND_JOB_SERVICE">
         </service>
