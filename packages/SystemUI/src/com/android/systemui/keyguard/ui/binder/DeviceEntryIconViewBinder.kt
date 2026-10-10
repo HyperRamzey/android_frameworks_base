@@ -45,6 +45,8 @@ import com.android.systemui.tuner.TunerService
 import com.android.systemui.util.kotlin.DisposableHandles
 import com.google.android.msdl.data.model.MSDLToken
 import com.google.android.msdl.domain.MSDLPlayer
+import com.android.systemui.keyguard.ui.view.layout.sections.DefaultDeviceEntrySection
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DisposableHandle
@@ -292,11 +294,21 @@ object DeviceEntryIconViewBinder {
                                     fgIconView.resources.getDimensionPixelSize(
                                         com.android.systemui.res.R.dimen.udfps_vertical_offset
                                     )
+                                // The icon view is smaller than the sensor, but
+                                // viewModel.padding is (sensorWidth - iconSize)/2 against the
+                                // full sensor. On the A30s the view is halved (238 -> 119 px)
+                                // while the padding stays 68 px a side, i.e. left + right =
+                                // 136 px > 119 px, so the content box goes negative and the
+                                // glyph is clipped away entirely. Scale the padding by the same
+                                // factor that shrank the view, which preserves the stock
+                                // glyph/view ratio. The factor is 1 everywhere else.
+                                val basePadding =
+                                    (viewModel.padding * DefaultDeviceEntrySection.UDFPS_ICON_SIZE_FACTOR).roundToInt()
                                 fgIconView.setPadding(
-                                    viewModel.padding,
-                                    viewModel.padding + fpVOffset,
-                                    viewModel.padding,
-                                    (viewModel.padding - fpVOffset).coerceAtLeast(0)
+                                    basePadding,
+                                    basePadding + fpVOffset,
+                                    basePadding,
+                                    (basePadding - fpVOffset).coerceAtLeast(0)
                                 )
                             } else {
                                 fgIconView.setPadding(0, 0, 0, 0)

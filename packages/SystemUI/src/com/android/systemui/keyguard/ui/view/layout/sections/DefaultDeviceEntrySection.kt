@@ -142,9 +142,11 @@ constructor(
                     str2 = "(${udfpsLocation.centerX}, ${udfpsLocation.centerY})"
                     str3 = "${authController.udfpsLocation}"
                 }
+                // A30s: halve the bg oval (the button). This only resizes the icon view;
+                // the touch target stays sensor-sized via UdfpsTouchOverlay(sensorBounds).
                 centerIcon(
                     Point(udfpsLocation.centerX.toInt(), udfpsLocation.centerY.toInt()),
-                    udfpsLocation.radius,
+                    udfpsLocation.radius * UDFPS_ICON_SIZE_FACTOR,
                     constraintSet,
                 )
             }
@@ -201,5 +203,9 @@ constructor(
 
     companion object {
         private const val TAG = "DefaultDeviceEntrySection"
+
+        /** A30s: bg-oval (button) size as a fraction of the sensor diameter. 0.5 = half size.
+         * Also used by UdfpsSurfaceView so the green touch-illumination dot matches the button. */
+        const val UDFPS_ICON_SIZE_FACTOR = 0.5f
     }
 }

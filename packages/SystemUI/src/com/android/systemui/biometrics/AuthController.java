@@ -697,6 +697,39 @@ public class AuthController implements
         mUdfpsController.onAodInterrupt(screenX, screenY, major, minor);
     }
 
+    /**
+     * A30s: request a UDFPS scan in response to a raw AOD gesture from the touch driver.
+     * <p>
+     * The stock AOD path is driven by a doze sensor (see {@link
+     * com.android.systemui.doze.DozeSensors}, REASON_SENSOR_UDFPS_LONG_PRESS) that does not
+     * exist on this device, so it can never fire. The Imagis TSP instead reports
+     * KEY_BLACK_UI_GESTURE; {@link
+     * com.android.systemui.keyevent.domain.interactor.SysUIKeyEventHandler} forwards that here
+     * while dozing and we feed onAodInterrupt the known sensor rect, which is what the falsing
+     * manager checks against.
+     */
+    public void onAodGesture() {
+        if (mUdfpsController == null) {
+            Log.e(TAG, "A30s onAodGesture | mUdfpsController is null");
+            return;
+        }
+
+        final Point location = getUdfpsLocation();
+        if (location == null) {
+            Log.e(TAG, "A30s onAodGesture | no udfps location, dropping gesture");
+            return;
+        }
+        final float radius = getUdfpsRadius();
+        if (radius <= 0f) {
+            Log.e(TAG, "A30s onAodGesture | no udfps radius, dropping gesture");
+            return;
+        }
+
+        Log.v(TAG, "A30s onAodGesture | firing at (" + location.x + "," + location.y + ") r="
+                + radius);
+        mUdfpsController.onAodInterrupt(location.x, location.y, radius, radius);
+    }
+
     private void sendResultAndCleanUp(@BiometricPrompt.DismissedReason int reason,
             @Nullable byte[] credentialAttestation) {
         if (mReceiver == null) {
