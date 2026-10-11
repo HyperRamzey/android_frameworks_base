@@ -61,6 +61,16 @@ public class UdfpsSurfaceView extends SurfaceView implements SurfaceHolder.Callb
     @NonNull private final SurfaceHolder mHolder;
     @NonNull private final Paint mSensorPaint;
 
+    /**
+     * A30s: vertical nudge for the illumination dot so it follows the lock-screen
+     * button. Read from the same udfps_vertical_offset that
+     * DeviceEntryIconViewBinder applies to the icon view, so the dot and the
+     * button cannot drift apart. 0px on every device except the A30s overlay.
+     * The touch hit-test region is untouched: it comes from the sensor bounds,
+     * not from the rect drawn here.
+     */
+    private final int mVerticalOffsetPx;
+
     @Nullable private GhbmIlluminationListener mGhbmIlluminationListener;
     @Nullable private Runnable mOnDisplayConfigured;
     boolean mAwaitingSurfaceToStartIllumination;
@@ -87,6 +97,10 @@ public class UdfpsSurfaceView extends SurfaceView implements SurfaceHolder.Callb
         mSensorPaint.setStyle(Paint.Style.FILL);
 
         mUdfpsIconPressed = context.getDrawable(R.drawable.udfps_icon_pressed);
+
+        mVerticalOffsetPx =
+                context.getResources()
+                        .getDimensionPixelSize(com.android.systemui.res.R.dimen.udfps_vertical_offset);
     }
 
     @Override public void surfaceCreated(SurfaceHolder holder) {
@@ -153,6 +167,10 @@ public class UdfpsSurfaceView extends SurfaceView implements SurfaceHolder.Callb
         final RectF dotRect = new RectF(sensorRect);
         final float inset = dotRect.width() * ILLUMINATION_INSET_FRACTION;
         dotRect.inset(inset, inset);
+        // A30s: nudge the dot down by the same offset the button uses, so the
+        // two share a centre. sensorRect is the raw sensor bounds; this is the
+        // only place the illumination is offset.
+        dotRect.offset(0, mVerticalOffsetPx);
         Canvas canvas = null;
         try {
             canvas = mHolder.lockCanvas();
