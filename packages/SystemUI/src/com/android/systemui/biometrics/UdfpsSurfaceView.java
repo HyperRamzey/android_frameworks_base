@@ -30,6 +30,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+import com.android.systemui.keyguard.ui.view.layout.sections.DefaultDeviceEntrySection;
 import com.android.systemui.res.R;
 
 /**
@@ -37,6 +38,15 @@ import com.android.systemui.res.R;
  */
 public class UdfpsSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
     private static final String TAG = "UdfpsSurfaceView";
+
+    /**
+     * a30s (ET715): the green illumination dot used to fill the whole 238 px sensor
+     * rect, so it followed neither the (halved) lockscreen button's size nor its
+     * position. Derived from the same knob that sizes that button, so the two cannot
+     * drift apart.
+     */
+    private static final float ILLUMINATION_INSET_FRACTION =
+            (1f - DefaultDeviceEntrySection.UDFPS_ICON_SIZE_FACTOR) / 2f;
 
     /**
      * Notifies {@link UdfpsView} when to enable GHBM illumination.
@@ -138,17 +148,27 @@ public class UdfpsSurfaceView extends SurfaceView implements SurfaceHolder.Callb
             Log.e(TAG, "drawIlluminationDot | the surface is destroyed or was never created.");
             return;
         }
+        // a30s (ET715): shrink the dot to the button and nudge it down by the same
+        // dimen DeviceEntryIconViewBinder applies to the button, so dot and button
+        // share a centre. sensorRect is the caller's HAL-truth rect and is also used
+        // for the touch hit-test, so it is copied, never mutated.
+        final RectF dotRect = new RectF(sensorRect);
+        dotRect.inset(
+                dotRect.width() * ILLUMINATION_INSET_FRACTION,
+                dotRect.height() * ILLUMINATION_INSET_FRACTION);
+        dotRect.offset(0f, getResources().getDimensionPixelSize(R.dimen.udfps_vertical_offset));
+
         Canvas canvas = null;
         try {
             canvas = mHolder.lockCanvas();
             mUdfpsIconPressed.setBounds(
-                    Math.round(sensorRect.left),
-                    Math.round(sensorRect.top),
-                    Math.round(sensorRect.right),
-                    Math.round(sensorRect.bottom)
+                    Math.round(dotRect.left),
+                    Math.round(dotRect.top),
+                    Math.round(dotRect.right),
+                    Math.round(dotRect.bottom)
             );
             mUdfpsIconPressed.draw(canvas);
-            canvas.drawOval(sensorRect, mSensorPaint);
+            canvas.drawOval(dotRect, mSensorPaint);
         } finally {
             // Make sure the surface is never left in a bad state.
             if (canvas != null) {

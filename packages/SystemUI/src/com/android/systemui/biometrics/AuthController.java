@@ -571,6 +571,31 @@ public class AuthController implements
     }
 
     /**
+     * a30s (ET715): fingerprint-on-AOD.
+     *
+     * <p>The Samsung TSP cannot talk to the UDFPS sensor out of LPM via the normal
+     * input path: during AOD the kernel reports a raw {@code KEY_BLACK_UI_GESTURE}
+     * (0x1c7) instead, mapped to {@code KEYCODE_BUTTON_1} by
+     * {@code sec_touchscreen.kl} and routed here by {@code SysUIKeyEventHandler}.
+     * The kernel publishes the touch position as ABS_MT_X/Y with it, but the
+     * InputReader drops those on a key-only stream - so the sensor rect this
+     * controller already knows is the correct position, and {@code major/minor}
+     * are the sensor radius (same convention as AOSP's UDFPS long-press sensor).
+     *
+     * @return true if the gesture was consumed; false when the sensor is unknown,
+     *         in which case the key should fall through untouched.
+     */
+    public boolean onAodGesture() {
+        final Point location = getUdfpsLocation();
+        if (mUdfpsController == null || location == null) {
+            return false;
+        }
+        final float radius = getUdfpsRadius();
+        mUdfpsController.onAodInterrupt(location.x, location.y, radius, radius);
+        return true;
+    }
+
+    /**
      * @return where the UDFPS exists on the screen in pixels in portrait mode.
      */
     @Nullable public Point getUdfpsLocation() {

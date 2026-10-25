@@ -26,6 +26,7 @@ import com.android.systemui.deviceentry.domain.interactor.DeviceEntryUdfpsIntera
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor
 import com.android.systemui.keyguard.shared.model.KeyguardState
 import com.android.systemui.keyguard.ui.view.DeviceEntryIconView
+import com.android.systemui.keyguard.ui.view.layout.sections.DefaultDeviceEntrySection
 import com.android.systemui.res.R
 import com.android.systemui.shade.ShadeDisplayAware
 import javax.inject.Inject
@@ -98,7 +99,17 @@ constructor(
     private val padding: Flow<Int> =
         deviceEntryUdfpsInteractor.isUdfpsSupported.flatMapLatest { udfpsSupported ->
             if (udfpsSupported) {
-                udfpsOverlayInteractor.iconPadding.debounce(udfpsPaddingDebounceDuration.toLong())
+                udfpsOverlayInteractor.iconPadding
+                    .debounce(udfpsPaddingDebounceDuration.toLong())
+                    // a30s (ET715): the lockscreen button is drawn at
+                    // UDFPS_ICON_SIZE_FACTOR of the sensor, so the padding - which
+                    // UdfpsOverlayInteractor computes against the FULL sensor - must
+                    // shrink with it. Unscaled it is 68 px a side inside a 119 px
+                    // view, the content box goes negative and CENTER_CROP has
+                    // nothing to draw into (glyph vanishes from lockscreen and AOD).
+                    .map {
+                        (it * DefaultDeviceEntrySection.UDFPS_ICON_SIZE_FACTOR).roundToInt()
+                    }
             } else {
                 configurationInteractor.scaleForResolution.map { scale ->
                     (context.resources.getDimensionPixelSize(R.dimen.lock_icon_padding) * scale)

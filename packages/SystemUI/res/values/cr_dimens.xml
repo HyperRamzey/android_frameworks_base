@@ -24,6 +24,12 @@
     <!-- Udfps fingerprint animation -->
     <dimen name="udfps_animation_size">280dp</dimen>
     <dimen name="udfps_animation_offset">0dp</dimen>
+    <!-- a30s (ET715): vertical nudge (px) applied to the UDFPS lockscreen button and
+         to the green illumination dot, so the two share a centre. 0 on every other
+         device; the a30s device overlay sets 20px. Must be declared HERE for the
+         overlay to be able to override it - an overlay for an undeclared resource
+         is silently ignored. -->
+    <dimen name="udfps_vertical_offset">0px</dimen>
 
     <!-- Smartspace -->
     <dimen name="air_quality_chip_corner_radius">7.0dip</dimen>

@@ -18,9 +18,11 @@ package com.android.systemui.keyevent.domain.interactor
 
 import android.view.KeyEvent
 import com.android.systemui.back.domain.interactor.BackActionInteractor
+import com.android.systemui.biometrics.AuthController
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.keyguard.domain.interactor.KeyguardKeyEventInteractor
 import javax.inject.Inject
+import javax.inject.Provider
 
 /**
  * Sends key events to the appropriate interactors and then acts upon key events that haven't
@@ -34,6 +36,7 @@ class SysUIKeyEventHandler
 constructor(
     private val backActionInteractor: BackActionInteractor,
     private val keyguardKeyEventInteractor: KeyguardKeyEventInteractor,
+    private val authControllerProvider: Provider<AuthController>,
 ) {
     fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (keyguardKeyEventInteractor.dispatchKeyEvent(event)) {
@@ -46,6 +49,15 @@ constructor(
                     backActionInteractor.onBackRequested()
                 }
                 return true
+            }
+            // a30s (ET715): the TSP's out-of-LPM (AOD) gesture key.
+            // KEY_BLACK_UI_GESTURE (0x1c7) is not an Android keycode, so
+            // sec_touchscreen.kl maps it to BUTTON_1, which nothing else uses.
+            // AuthController only consumes it when the UDFPS rect is known.
+            KeyEvent.KEYCODE_BUTTON_1 -> {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    return authControllerProvider.get().onAodGesture()
+                }
             }
         }
         return false

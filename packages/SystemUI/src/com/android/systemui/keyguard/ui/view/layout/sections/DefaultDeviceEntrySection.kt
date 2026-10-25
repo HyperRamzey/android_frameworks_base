@@ -143,8 +143,17 @@ constructor(
                     str3 = "${authController.udfpsLocation}"
                 }
                 centerIcon(
-                    Point(udfpsLocation.centerX.toInt(), udfpsLocation.centerY.toInt()),
-                    udfpsLocation.radius,
+                    Point(
+                        udfpsLocation.centerX.toInt(),
+                        // a30s (ET715): nudge the button down by the same dimen
+                        // UdfpsSurfaceView translates the green illumination dot by,
+                        // so the two share a centre. The touch overlay is sized from
+                        // sensorBounds and does not move.
+                        udfpsLocation.centerY.toInt()
+                                + context.resources.getDimensionPixelSize(
+                                    R.dimen.udfps_vertical_offset),
+                    ),
+                    udfpsLocation.radius * UDFPS_ICON_SIZE_FACTOR,
                     constraintSet,
                 )
             }
@@ -201,5 +210,19 @@ constructor(
 
     companion object {
         private const val TAG = "DefaultDeviceEntrySection"
+
+        /**
+         * a30s (ET715): the UDFPS button on the lockscreen is drawn at
+         * `2 * udfpsLocation.radius`, i.e. the full 238 px sensor, which looks twice
+         * as big as the sensor. 0.5 halves it to match the enrollment button in
+         * Settings. Visual only: the touch target stays sensor-sized because
+         * UdfpsTouchOverlay is sized from overlayParams.sensorBounds.
+         *
+         * Internal (not private) on purpose: UdfpsSurfaceView derives the green
+         * illumination dot's inset from this same knob so dot and button cannot
+         * drift apart, and DeviceEntryForegroundViewModel scales the icon padding
+         * with it so the glyph is not clipped to nothing inside the smaller view.
+         */
+        internal const val UDFPS_ICON_SIZE_FACTOR = 0.5f
     }
 }
